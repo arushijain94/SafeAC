@@ -21,6 +21,7 @@ Here following parameters in pseudocode are referred with following names:
 * lr_critic: α_w
 * lr_theta: α_θ
 * lr_sigma: α_z
+
 Keep all parameters as default and change the ones mentioned in supplementary material for optimal performance
 
 # Training for On-Policy AC in Discrete State Space
