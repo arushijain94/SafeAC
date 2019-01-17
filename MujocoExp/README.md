@@ -1,4 +1,4 @@
-# Safe-Actor-Critic
+# Safe On-Policy AC
 We introduce a novel framework which provides safety in Actor Critic style methods. Here safety is defined as "Prevention from accidents in ML systems due to poor designing on AI systems". Safety can be added in various ways - modification of reward function, constraint based optimization, safety on exploration, etc. In this work, we are basing the notion of safety on constraint based optimization, where constraint is to minimize the variance of the return.
 
 # Some awesome papers on Safety in AI
