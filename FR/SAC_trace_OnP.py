@@ -9,7 +9,7 @@ import os
 import sys
 import datetime
 import threading
-
+import csv
 
 class Tabular:
     def __init__(self, nstates):
@@ -207,12 +207,26 @@ def str2bool(v):
     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
 
+def save_csv(args, file_name, mean_return, std_return):
+    csvData = []
+    style = 'a'
+    if not os.path.exists(file_name):
+        style = 'w'
+        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'mean', 'std']
+        csvData.append(csvHeader)
+    data_row = [args.nruns, args.nepisodes, args.temperature, args.lr_theta, args.lr_critic, args.lr_sigma,
+                args.psi, mean_return, std_return]
+    csvData.append(data_row)
+    with open(file_name, style) as csvFile:
+        writer = csv.writer(csvFile)
+        writer.writerows(csvData)
+    csvFile.close()
 
 def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
               frozen_states, nfeatures, nactions, num_states, temperature,gamma_Q, gamma_var,
               lmbda, lr_critic, lr_sigma, lr_theta, psi, rng):
 
-    history = np.zeros((nepisodes, 4),
+    history = np.zeros((nepisodes, 3),
                        dtype=np.float32)  # 1. Return 2. Steps 3. TD error 1 norm 4. Q value weight sum
     # storage the weights of the trained model
     weight_policy = np.zeros((nepisodes - num_episode_storing_start, num_states, nactions),
@@ -281,7 +295,7 @@ def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
         history[episode, 0] = step
         history[episode, 1] = return_per_episode
         history[episode, 2] = sum_td_error
-        history[episode, 3] = np.sum(action_critic.weights)
+        # history[episode, 3] = np.sum(action_critic.weights)
 
         if episode >= num_episode_storing_start:
             weight_policy[episode - num_episode_storing_start, :, :] = policy.weights
@@ -305,7 +319,7 @@ if __name__ == '__main__':
     parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=0.05)
     parser.add_argument('--psi', help="Psi regularizer for Variance in return", type=float, default=0.0)
 
-    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=5000)
+    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=2000)
     parser.add_argument('--nruns', help="Number of runs", type=int, default=50)
     parser.add_argument('--policyType', help="softmax or e-greedy", type=str2bool,
                         default=False)  # False: Softmax Policy, True: E-greedy Policy
@@ -315,12 +329,11 @@ if __name__ == '__main__':
     now_time = datetime.datetime.now()
 
     env = gym.make('Fourrooms-v0')
-    outer_dir = "Results_Ac_Dec_FR_OnP"
+    outer_dir = "Results_AC"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
     outer_dir = os.path.join(outer_dir, "FourRoomSACOnP_" + now_time.strftime("%d-%m"))
-    if not os.path.exists(outer_dir):
-        
+    if not os.path.exists(outer_dir):        
         os.makedirs(outer_dir)
 
     dir_name = "R" + str(args.nruns) + "_E" + str(args.nepisodes) + "_Psi" + str(args.psi) + \
@@ -362,6 +375,12 @@ if __name__ == '__main__':
     for x in threads:
         x.join()
 
+    hist = np.asarray(outputinfo.history)
+    last_meanreturn = np.mean(hist[:,:-50,1]) #Last 100 episodes mean value of the return
+    last_stdreturn = np.std(hist[:,:-50,1]) #Last 100 episodes std. dev value of the return
+
+
     np.save(os.path.join(dir_name, 'Weights_Policy.npy'), np.asarray(outputinfo.weight_policy))
     np.save(os.path.join(dir_name, 'Weights_Q.npy'), np.asarray(outputinfo.weight_Q))
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
+    save_csv(args, os.path.join(outer_dir,"ParamtersDone.csv"), last_meanreturn, last_stdreturn)

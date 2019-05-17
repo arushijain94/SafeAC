@@ -154,7 +154,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, nactions, num_states,
             new_J = J[S[t]] + lr_critic*(G[t] - J[S[t]])
             new_V = V[S[t]]+ lr_critic*(G[t]**2 - J[S[t]]**2 - V[S[t]])
             action_pmf = policy.pmf(S[t])
-            policy_update_val = lr_theta* (G[t] - lmbda * penalty_function_gradient(V[S[t]] - b)*(G[t]**2 - 2*J[S[t]]))
+            policy_update_val = lr_theta* (G[t] - lmbda * penalty_function_gradient(V[S[t]] - b)*(G[t]**2 - 2*J[S[t]]*G[t]))
             policy.weights[S[t], :] -= policy_update_val* action_pmf
             policy.weights[S[t], A[t]] += policy_update_val
             J[S[t]]= new_J
@@ -188,10 +188,10 @@ if __name__ == '__main__':
     now_time = datetime.datetime.now()
 
     env = gym.make('Fourrooms-v0')
-    outer_dir = "Results_BaselineVar"
+    outer_dir = "Results_BaselineVarUpdated"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
-    outer_dir = os.path.join(outer_dir, "FR_" + now_time.strftime("%d-%m"))
+    outer_dir = os.path.join(outer_dir, "FR_16-05")# + now_time.strftime("%d-%m"))
     if not os.path.exists(outer_dir):        
         os.makedirs(outer_dir)
 
