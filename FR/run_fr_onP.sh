@@ -1,14 +1,14 @@
 #!/bin/bash
 Lr_p=(1e-3)
 Lr_c=(1e-1)
-Lr_sigma=(1e-1)
+Lr_sigma=(1e-2)
 Lam=(0.4)
 Temp=(5e-2)
-PsiFixed=("True")
-PsiRate=(1)
+PsiFixed=("False")
+PsiRate=(5)
 Psi=(0.0)
 Seed=(10)
-Episodes=(100)
+Episodes=(10)
 
 for temp in "${Temp[@]}"; do
 	for lr_p in "${Lr_p[@]}"; do
