@@ -24,4 +24,4 @@ psifixed=$8
 psirate=$9
 seed=$10
 
-python ./FR/SAC_OnP_Direct.py --temperature $temp  --lr_theta $lr_p --lr_critic $lr_c --lr_sigma $lr_sigma --lmbda $lam  --nepisodes $eps --psi $psi --psiFixed $psifixed --psiRate $psirate --seed $seed
+python ./SAC_OnP_Direct.py --temperature $temp  --lr_theta $lr_p --lr_critic $lr_c --lr_sigma $lr_sigma --lmbda $lam  --nepisodes $eps --psi $psi --psiFixed $psifixed --psiRate $psirate --seed $seed
