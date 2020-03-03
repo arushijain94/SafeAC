@@ -11,6 +11,7 @@ import datetime
 import threading
 import csv
 
+
 class Tabular:
     def __init__(self, nstates):
         self.nstates = nstates
@@ -21,6 +22,7 @@ class Tabular:
     def __len__(self):
         return self.nstates
 
+
 class RandomPolicy:
     def __init__(self, nactions):
         self.nactions = nactions
@@ -29,7 +31,7 @@ class RandomPolicy:
         return int(np.random.randint(self.nactions))
 
     def pmf(self):
-        prob_actions = [1./self.nactions]*self.nactions
+        prob_actions = [1. / self.nactions] * self.nactions
         return prob_actions
 
 
@@ -68,11 +70,11 @@ class SoftmaxPolicy:
         b = v.max()
         new_values = v - b
         y = np.exp(new_values)
-        return (y/ y.sum())
+        return (y / y.sum())
 
     def sample(self, phi):
         prob = self.pmf(phi)
-        if prob.sum() >1:
+        if prob.sum() > 1:
             ind_max = np.argmax(prob)
             prob = np.zeros(self.nactions)
             prob[ind_max] = 1.
@@ -88,7 +90,7 @@ class StateActionLearning:
         self.lmbda = lmbda
         self.weights = weights
         self.trace = trace
-        self.variance = variance # binary value (0: its is Q value, 1: sigma(s,a) value)
+        self.variance = variance  # binary value (0: its is Q value, 1: sigma(s,a) value)
 
     def start(self, phi, action):
         self.last_phi = phi
@@ -103,19 +105,18 @@ class StateActionLearning:
     def update(self, phi, action, reward, done):
         # One-step update target
         if self.variance:
-            self.trace *= math.pow(self.gamma* self.lmbda, 2.)
+            self.trace *= math.pow(self.gamma * self.lmbda, 2.)
         else:
             self.trace *= self.gamma * self.lmbda
         self.trace[self.last_phi, self.last_action] += 1
         self.trace = np.clip(self.trace, -100., 100.)
-
 
         update_target = reward
         if not done:
             current_value = self.value(phi, action)
             corrected_curent_value = current_value
             if self.variance:
-                corrected_curent_value *= math.pow(self.gamma* self.lmbda, 2.)
+                corrected_curent_value *= math.pow(self.gamma * self.lmbda, 2.)
             else:
                 corrected_curent_value *= self.gamma
             update_target += self.gamma * corrected_curent_value
@@ -139,20 +140,18 @@ class PolicyGradient:
         self.policy = policy
         self.psi = psi
 
-    def update(self, phi, action, critic, sigma):
+    def update(self, phi, action, critic, sigma, current_psi):
         actions_pmf = self.policy.pmf(phi)
-        # print("action pmf: ", actions_pmf)
         if self.psi != 0.0:  # variance as regularization factor to optimization criterion
-            psi = self.psi
+            psi = current_psi
             regularization = -self.lr * psi * sigma
             self.policy.weights[phi, :] -= regularization * actions_pmf
             self.policy.weights[phi, action] += regularization
-            # print("in safety area ")
 
-        # print("oi: ", phi)
         Q_val = self.lr * critic
         self.policy.weights[phi, :] -= Q_val * actions_pmf
         self.policy.weights[phi, action] += Q_val
+
 
 class OutputInformation:
     def __init__(self):
@@ -160,7 +159,6 @@ class OutputInformation:
         self.weight_policy = []
         self.weight_Q = []
         self.history = []
-
 
 
 def GetFrozenStates():
@@ -207,43 +205,51 @@ def str2bool(v):
     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
 
+
 def save_csv(args, file_name, mean_return, std_return):
     csvData = []
     style = 'a'
     if not os.path.exists(file_name):
         style = 'w'
-        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'mean', 'std']
+        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_type', 'psi_rate', 'mean', 'std']
         csvData.append(csvHeader)
     data_row = [args.nruns, args.nepisodes, args.temperature, args.lr_theta, args.lr_critic, args.lr_sigma,
-                args.psi, mean_return, std_return]
+                args.psi, args.psiFixed, args.psiRate, mean_return, std_return]
     csvData.append(data_row)
     with open(file_name, style) as csvFile:
         writer = csv.writer(csvFile)
         writer.writerows(csvData)
     csvFile.close()
 
-def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
-              frozen_states, nfeatures, nactions, num_states, temperature,gamma_Q, gamma_var,
-              lmbda, lr_critic, lr_sigma, lr_theta, psi, rng):
 
+def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
+              frozen_states, nfeatures, nactions, num_states, temperature, gamma_Q, gamma_var,
+              lmbda, lr_critic, lr_sigma, lr_theta, psi, rng, psi_fixed, psi_rate):
     history = np.zeros((nepisodes, 3),
-                       dtype=np.float32)  # 1. Return 2. Steps 3. TD error 1 norm 4. Q value weight sum
+                       dtype=np.float32)  # 1. Return 2. Steps 3. TD error 1 norm
     # storage the weights of the trained model
     weight_policy = np.zeros((nepisodes - num_episode_storing_start, num_states, nactions),
                              dtype=np.float32)
     weight_Q = np.zeros((nepisodes - num_episode_storing_start, num_states, nactions),
                         dtype=np.float32)
 
+    # Using Softmax Policy
     policy = SoftmaxPolicy(rng, nfeatures, nactions, temperature)
+
     # Action_critic is Q value of state-action pair
-    weights_QVal = np.ones((nfeatures, nactions))*0.5  # positive weight initialization
+    weights_QVal = np.ones((nfeatures, nactions)) * 0.5  # positive weight initialization
     trace_Qval = np.zeros_like(weights_QVal)
-    action_critic = StateActionLearning(gamma_Q, lmbda, lr_critic, weights_QVal, trace_Qval,0)
+    action_critic = StateActionLearning(gamma_Q, lmbda, lr_critic, weights_QVal, trace_Qval, 0)
 
     # Variance is sigma of state-action pair
-    weights_var = np.zeros((nfeatures, nactions))  # positive weight initialization
+    weights_var = np.zeros((nfeatures, nactions))  # zero weight initialization
     trace_var = np.zeros_like(weights_var)
-    sigma = StateActionLearning(gamma_var, lmbda, lr_sigma, weights_var, trace_var,1)
+    sigma = StateActionLearning(gamma_var, lmbda, lr_sigma, weights_var, trace_var, 1)
+    # Fixing Psi rate
+    current_psi = psi
+    if not psi_fixed:
+        current_psi = 0.0
+        psi_inc = float(psi) / psi_rate  # gives the increment in psi for each episode
 
     # Policy gradient improvement step
     policy_improvement = PolicyGradient(policy, lr_theta, psi, nactions)
@@ -266,7 +272,6 @@ def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
             old_action = action
             observation, reward, done, _ = env.step(action)
 
-            # Frozen state receives a variable uniform reward[-15, 15]
             if old_observation in frozen_states:
                 reward = np.random.normal(loc=0.0, scale=8.0)
 
@@ -288,14 +293,15 @@ def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
                 sigma_val = 0.0
 
             critic_val = action_critic.value(old_phi, old_action)
-            policy_improvement.update(old_phi, old_action, critic_val, sigma_val)
+            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, current_psi)
 
             step += 1
+            if not psi_fixed and episode <= psi_rate:
+                current_psi += psi_inc
 
         history[episode, 0] = step
         history[episode, 1] = return_per_episode
         history[episode, 2] = sum_td_error
-        # history[episode, 3] = np.sum(action_critic.weights)
 
         if episode >= num_episode_storing_start:
             weight_policy[episode - num_episode_storing_start, :, :] = policy.weights
@@ -304,7 +310,6 @@ def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
     outputinfo.weight_policy.append(weight_policy)
     outputinfo.weight_Q.append(weight_Q)
     outputinfo.history.append(history)
-
 
 
 if __name__ == '__main__':
@@ -318,11 +323,12 @@ if __name__ == '__main__':
     parser.add_argument('--lr_sigma', help="Learning rate for sigma variance of return", type=float, default=0.02)
     parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=0.05)
     parser.add_argument('--psi', help="Psi regularizer for Variance in return", type=float, default=0.0)
-
+    parser.add_argument('--psiFixed', help="Psi regularizer is held fixed", type=str2bool,
+                        default=True)  # True: fixed psi, False:Variable Psi
+    parser.add_argument('--psiRate', help="Num of episodes to reach psi value given", type=int,
+                        default=1)  # Num of episodes by which psi value should change from zero to psi value
     parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=2000)
     parser.add_argument('--nruns', help="Number of runs", type=int, default=50)
-    parser.add_argument('--policyType', help="softmax or e-greedy", type=str2bool,
-                        default=False)  # False: Softmax Policy, True: E-greedy Policy
     parser.add_argument('--seed', help="seed value for experiment", type=int, default=10)
 
     args = parser.parse_args()
@@ -333,17 +339,17 @@ if __name__ == '__main__':
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
     outer_dir = os.path.join(outer_dir, "FourRoomSACOnP_" + now_time.strftime("%d-%m"))
-    if not os.path.exists(outer_dir):        
+    if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
 
     dir_name = "R" + str(args.nruns) + "_E" + str(args.nepisodes) + "_Psi" + str(args.psi) + \
                "_LRC" + str(args.lr_critic) + "_LRTheta" + str(args.lr_theta) + "_LRV" + str(args.lr_sigma) + \
-               "_temp" + str(args.temperature) + "_seed" + str(args.seed)
+               "_temp" + str(args.temperature) + "_PsiRate" + str(args.psiRate) + "_seed" + str(args.seed)
 
-    if args.policyType == True:
-        dir_name += "_Policy_" + "G"
+    if args.psiFixed:
+        dir_name += "_PsiTypeF"
     else:
-        dir_name += "_Policy_" + "S"
+        dir_name += "_PsiTypeV"
 
     dir_name = os.path.join(outer_dir, dir_name)
     if not os.path.exists(dir_name):
@@ -368,7 +374,8 @@ if __name__ == '__main__':
                                                      frozen_states, nfeatures, nactions, num_states, args.temperature,
                                                      args.gamma_Q, args.gamma_var, args.lmbda, args.lr_critic,
                                                      args.lr_sigma, args.lr_theta, args.psi,
-                                                     np.random.RandomState(args.seed + i), ))
+                                                     np.random.RandomState(args.seed + i), args.psiFixed,
+                                                     args.psiRate,))
         threads.append(t)
         t.start()
 
@@ -376,11 +383,10 @@ if __name__ == '__main__':
         x.join()
 
     hist = np.asarray(outputinfo.history)
-    last_meanreturn = np.mean(hist[:,:-50,1]) #Last 100 episodes mean value of the return
-    last_stdreturn = np.std(hist[:,:-50,1]) #Last 100 episodes std. dev value of the return
-
+    last_meanreturn = np.mean(hist[:, :-50, 1])  # Last 100 episodes mean value of the return
+    last_stdreturn = np.std(hist[:, :-50, 1])  # Last 100 episodes std. dev value of the return
 
     np.save(os.path.join(dir_name, 'Weights_Policy.npy'), np.asarray(outputinfo.weight_policy))
     np.save(os.path.join(dir_name, 'Weights_Q.npy'), np.asarray(outputinfo.weight_Q))
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
-    save_csv(args, os.path.join(outer_dir,"ParamtersDone.csv"), last_meanreturn, last_stdreturn)
+    save_csv(args, os.path.join(outer_dir, "ParamtersDone.csv"), last_meanreturn, last_stdreturn)
