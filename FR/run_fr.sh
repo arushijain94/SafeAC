@@ -23,5 +23,7 @@ psi=$7
 psifixed=$8
 psirate=$9
 seed=$10
+path_name="$HOME/projects/rpp-bengioy/ajain25/SafeActorCritic/SafeAC_ICML2019/FR/"
+file_name="SAC_OnP_Direct.py"
 
-python ./SAC_OnP_Direct.py --temperature $temp  --lr_theta $lr_p --lr_critic $lr_c --lr_sigma $lr_sigma --lmbda $lam  --nepisodes $eps --psi $psi --psiFixed $psifixed --psiRate $psirate --seed $seed
+python $path_name$file_name --temperature $temp  --lr_theta $lr_p --lr_critic $lr_c --lr_sigma $lr_sigma --lmbda $lam  --nepisodes $eps --psi $psi --psiFixed $psifixed --psiRate $psirate --seed $seed
