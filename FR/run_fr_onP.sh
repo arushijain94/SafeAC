@@ -9,6 +9,8 @@ PsiRate=(5)
 Psi=(0.0)
 Seed=(10)
 Episodes=(10)
+path_name="./"
+file_name="SAC_OnP_Direct.py"
 
 for temp in "${Temp[@]}"; do
 	for lr_p in "${Lr_p[@]}"; do
@@ -20,7 +22,7 @@ for temp in "${Temp[@]}"; do
 				            for psirate in "${PsiRate[@]}"; do
 				                for lr_sigma in "${Lr_sigma[@]}"; do
 				                    for seed in "${Seed[@]}"; do
-				                        nohup python SAC_trace_OnP.py --temperature $temp  --lr_theta $lr_p --lr_critic $lr_c --lr_sigma $lr_sigma --lmbda $lam  --nepisodes $eps --psi $psi --psiFixed $psifixed --psiRate $psirate --seed $seed &
+				                        python $path_name$file_name --temperature $temp  --lr_theta $lr_p --lr_critic $lr_c --lr_sigma $lr_sigma --lmbda $lam  --nepisodes $eps --psi $psi --psiFixed $psifixed --psiRate $psirate --seed $seed &
 				                    done
                                 done
 				            done

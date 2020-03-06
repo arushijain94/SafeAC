@@ -22,7 +22,7 @@ eps=$6
 psi=$7
 psifixed=$8
 psirate=$9
-seed=$10
+seed=10
 path_name="$HOME/projects/rpp-bengioy/ajain25/SafeActorCritic/SafeAC_ICML2019/FR/"
 file_name="SAC_OnP_Direct.py"
 

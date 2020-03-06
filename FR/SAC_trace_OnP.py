@@ -155,6 +155,7 @@ class OutputInformation:
         # storage the weights of the trained model
         self.weight_policy = []
         self.weight_Q = []
+        self.weight_var = []
         self.history = []
 
 
@@ -208,7 +209,7 @@ def save_csv(args, file_name, mean_return, std_return):
     style = 'a'
     if not os.path.exists(file_name):
         style = 'w'
-        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_type', 'psi_rate', 'mean', 'std']
+        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_fixed', 'psi_rate', 'mean', 'std']
         csvData.append(csvHeader)
     data_row = [args.nruns, args.nepisodes, args.temperature, args.lr_theta, args.lr_critic, args.lr_sigma,
                 args.psi, args.psiFixed, args.psiRate, mean_return, std_return]
@@ -219,27 +220,29 @@ def save_csv(args, file_name, mean_return, std_return):
     csvFile.close()
 
 
-def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
+def run_agent(outputinfo, features, nepisodes,
               frozen_states, nfeatures, nactions, num_states, temperature, gamma_Q, gamma_var,
               lmbda, lr_critic, lr_sigma, lr_theta, psi, rng, psi_fixed, psi_rate):
     history = np.zeros((nepisodes, 3),
                        dtype=np.float32)  # 1. Return 2. Steps 3. TD error 1 norm
     # storage the weights of the trained model
-    weight_policy = np.zeros((nepisodes - num_episode_storing_start, num_states, nactions),
+    weight_policy = np.zeros((nepisodes, num_states, nactions),
                              dtype=np.float32)
-    weight_Q = np.zeros((nepisodes - num_episode_storing_start, num_states, nactions),
+    weight_Q = np.zeros((nepisodes, num_states, nactions),
                         dtype=np.float32)
+    weight_var = np.zeros((nepisodes, num_states, nactions),
+                          dtype=np.float32)
 
     # Using Softmax Policy
     policy = SoftmaxPolicy(rng, nfeatures, nactions, temperature)
 
     # Action_critic is Q value of state-action pair
-    weights_QVal = np.ones((nfeatures, nactions)) * 0.5  # positive weight initialization
+    weights_QVal = np.random.rand(nfeatures, nactions)
     trace_Qval = np.zeros_like(weights_QVal)
     action_critic = StateActionLearning(gamma_Q, lmbda, lr_critic, weights_QVal, trace_Qval, 0)
 
     # Variance is sigma of state-action pair
-    weights_var = np.zeros((nfeatures, nactions))  # zero weight initialization
+    weights_var = np.random.rand(nfeatures, nactions)
     trace_var = np.zeros_like(weights_var)
     sigma = StateActionLearning(gamma_var, lmbda, lr_sigma, weights_var, trace_var, 1)
     # Fixing Psi rate
@@ -300,9 +303,9 @@ def run_agent(outputinfo, features, nepisodes, num_episode_storing_start,
         history[episode, 1] = return_per_episode
         history[episode, 2] = sum_td_error
 
-        if episode >= num_episode_storing_start:
-            weight_policy[episode - num_episode_storing_start, :, :] = policy.weights
-            weight_Q[episode - num_episode_storing_start, :, :] = action_critic.weights
+        weight_policy[episode, :, :] = policy.weights
+        weight_Q[episode, :, :] = action_critic.weights
+        weight_var[episode, :, :] = sigma.weights
 
     outputinfo.weight_policy.append(weight_policy)
     outputinfo.weight_Q.append(weight_Q)
@@ -324,7 +327,7 @@ if __name__ == '__main__':
                         default=True)  # True: fixed psi, False:Variable Psi
     parser.add_argument('--psiRate', help="Num of episodes to reach psi value given", type=int,
                         default=1)  # Num of episodes by which psi value should change from zero to psi value
-    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=2000)
+    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=100)
     parser.add_argument('--nruns', help="Number of runs", type=int, default=5)
     parser.add_argument('--seed', help="seed value for experiment", type=int, default=10)
 
@@ -335,7 +338,7 @@ if __name__ == '__main__':
     outer_dir = "Results_AC"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
-    outer_dir = os.path.join(outer_dir, "FourRoomSACOnP")# + now_time.strftime("%d-%m"))
+    outer_dir = os.path.join(outer_dir, "FourRoomSACOnP")
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
 
@@ -358,8 +361,6 @@ if __name__ == '__main__':
     nactions = env.action_space.n
     frozen_states = GetFrozenStates()
 
-    num_episode_storing_start = 0
-
     threads = []
     features = Tabular(num_states)
     nfeatures = len(features)
@@ -367,7 +368,7 @@ if __name__ == '__main__':
 
     for i in range(args.nruns):
         t = threading.Thread(target=run_agent, args=(outputinfo, features,
-                                                     args.nepisodes, num_episode_storing_start,
+                                                     args.nepisodes,
                                                      frozen_states, nfeatures, nactions, num_states, args.temperature,
                                                      args.gamma_Q, args.gamma_var, args.lmbda, args.lr_critic,
                                                      args.lr_sigma, args.lr_theta, args.psi,
@@ -380,10 +381,11 @@ if __name__ == '__main__':
         x.join()
 
     hist = np.asarray(outputinfo.history)
-    last_meanreturn = np.mean(hist[:, :-50, 1])  # Last 100 episodes mean value of the return
-    last_stdreturn = np.std(hist[:, :-50, 1])  # Last 100 episodes std. dev value of the return
+    last_meanreturn = np.round(np.mean(hist[:, :-50, 1]),2)  # Last 100 episodes mean value of the return
+    last_stdreturn = np.round(np.std(hist[:, :-50, 1]),2)  # Last 100 episodes std. dev value of the return
 
     np.save(os.path.join(dir_name, 'Weights_Policy.npy'), np.asarray(outputinfo.weight_policy))
     np.save(os.path.join(dir_name, 'Weights_Q.npy'), np.asarray(outputinfo.weight_Q))
+    np.save(os.path.join(dir_name, 'Weights_var.npy'), np.asarray(outputinfo.weight_var))
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
     save_csv(args, os.path.join(outer_dir, "ParamtersDone.csv"), last_meanreturn, last_stdreturn)
