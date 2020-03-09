@@ -328,7 +328,7 @@ if __name__ == '__main__':
     parser.add_argument('--psiRate', help="Num of episodes to reach psi value given", type=int,
                         default=1)  # Num of episodes by which psi value should change from zero to psi value
     parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=100)
-    parser.add_argument('--nruns', help="Number of runs", type=int, default=5)
+    parser.add_argument('--nruns', help="Number of runs", type=int, default=50)
     parser.add_argument('--seed', help="seed value for experiment", type=int, default=10)
 
     args = parser.parse_args()
