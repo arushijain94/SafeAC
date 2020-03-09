@@ -1,10 +1,10 @@
 #!/bin/bash
 Lr_p=(1e-3)
-Lr_c=(1e-1)
+Lr_c=(1e-1 5e-1)
 Lr_sigma=(1e-2)
-Lam=(0.6 0.8)
+Lam=(0.5)
 Temp=(5e-2 1e-3)
-PsiFixed=("False")
+PsiFixed=("True")
 PsiRate=(200)
 Psi=(0.0)
 Seed=(10)

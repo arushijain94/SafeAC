@@ -53,7 +53,7 @@ class EgreedyPolicy:
 class SoftmaxPolicy:
     def __init__(self, rng, nfeatures, nactions, temp=1.):
         self.rng = rng
-        self.weights = 0.5 * np.ones((nfeatures, nactions))  # positive weight initialization
+        self.weights = np.random.rand(nfeatures, nactions)  # positive weight initialization
         self.nactions = nactions
         self.temp = temp
 
@@ -209,10 +209,10 @@ def save_csv(args, file_name, mean_return, std_return):
     style = 'a'
     if not os.path.exists(file_name):
         style = 'w'
-        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_fixed', 'psi_rate', 'mean', 'std']
+        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_fixed', 'psi_rate', 'lambda','mean', 'std']
         csvData.append(csvHeader)
     data_row = [args.nruns, args.nepisodes, args.temperature, args.lr_theta, args.lr_critic, args.lr_sigma,
-                args.psi, args.psiFixed, args.psiRate, mean_return, std_return]
+                args.psi, args.psiFixed, args.psiRate, args.lmbda, mean_return, std_return]
     csvData.append(data_row)
     with open(file_name, style) as csvFile:
         writer = csv.writer(csvFile)
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     now_time = datetime.datetime.now()
 
     env = gym.make('Fourrooms-v0')
-    outer_dir = "Results_AC"
+    outer_dir = "../../Neurips2020Results/Results_AC"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
     outer_dir = os.path.join(outer_dir, "FourRoomSACOnP")
@@ -344,7 +344,7 @@ if __name__ == '__main__':
 
     dir_name = "R" + str(args.nruns) + "_E" + str(args.nepisodes) + "_Psi" + str(args.psi) + \
                "_LRC" + str(args.lr_critic) + "_LRTheta" + str(args.lr_theta) + "_LRV" + str(args.lr_sigma) + \
-               "_temp" + str(args.temperature) + "_PsiRate" + str(args.psiRate) + "_seed" + str(args.seed)
+               "_temp" + str(args.temperature) + "_PsiRate" + str(args.psiRate) + "_lambda" + str(args.lmbda) + "_seed" + str(args.seed)
 
     if args.psiFixed:
         dir_name += "_PsiTypeF"
