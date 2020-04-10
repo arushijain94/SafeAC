@@ -249,7 +249,7 @@ def run_agent(outputinfo, features, nepisodes,
     current_psi = psi
     if not psi_fixed:
         current_psi = 0.0
-        psi_inc = float(psi) / psi_rate  # gives the increment in psi for each episode
+        psi_inc = float(psi)/psi_rate  # gives the increment in psi for each episode
 
     # Policy gradient improvement step
     policy_improvement = PolicyGradient(policy, lr_theta, psi, nactions)
@@ -296,8 +296,8 @@ def run_agent(outputinfo, features, nepisodes,
             policy_improvement.update(old_phi, old_action, critic_val, sigma_val, current_psi)
 
             step += 1
-            if not psi_fixed and episode <= psi_rate:
-                current_psi += psi_inc
+        if current_psi < psi and not psi_fixed :
+            current_psi = np.round(current_psi+psi_inc,4)
 
         history[episode, 0] = step
         history[episode, 1] = return_per_episode
@@ -327,8 +327,8 @@ if __name__ == '__main__':
                         default=True)  # True: fixed psi, False:Variable Psi
     parser.add_argument('--psiRate', help="Num of episodes to reach psi value given", type=int,
                         default=1)  # Num of episodes by which psi value should change from zero to psi value
-    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=100)
-    parser.add_argument('--nruns', help="Number of runs", type=int, default=50)
+    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=1000)
+    parser.add_argument('--nruns', help="Number of runs", type=int, default=100)
     parser.add_argument('--seed', help="seed value for experiment", type=int, default=10)
 
     args = parser.parse_args()
@@ -344,13 +344,14 @@ if __name__ == '__main__':
 
     dir_name = "R" + str(args.nruns) + "_E" + str(args.nepisodes) + "_Psi" + str(args.psi) + \
                "_LRC" + str(args.lr_critic) + "_LRTheta" + str(args.lr_theta) + "_LRV" + str(args.lr_sigma) + \
-               "_temp" + str(args.temperature) + "_PsiRate" + str(args.psiRate) + "_lambda" + str(args.lmbda) + "_seed" + str(args.seed)
+               "_temp" + str(args.temperature) + "_PRate" + str(args.psiRate) + "_lambda" + str(args.lmbda)
 
     if args.psiFixed:
-        dir_name += "_PsiTypeF"
+        dir_name += "_PTypeF"
     else:
-        dir_name += "_PsiTypeV"
+        dir_name += "_PTypeV"
 
+    dir_name += "_seed" + str(args.seed)
     dir_name = os.path.join(outer_dir, dir_name)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -389,3 +390,5 @@ if __name__ == '__main__':
     np.save(os.path.join(dir_name, 'Weights_var.npy'), np.asarray(outputinfo.weight_var))
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
     save_csv(args, os.path.join(outer_dir, "ParamtersDone.csv"), last_meanreturn, last_stdreturn)
+
+# best till now: c =0.05, theta = 1e-3, temp= 0.05, lam =0.6, psi 0.0

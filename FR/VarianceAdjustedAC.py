@@ -114,15 +114,15 @@ def str2bool(v):
         return False
 
 
-def save_csv(args, file_name, mean_return, std_return):
+def save_csv(args, file_name, mean_return, std_return, mean_step):
     csvData = []
     style = 'a'
     if not os.path.exists(file_name):
         style = 'w'
-        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_j', 'lr_m', 'tradeoff', 'mean', 'std']
+        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_j', 'lr_m', 'gamma','tradeoff', 'mean', 'std', 'm_step']
         csvData.append(csvHeader)
     data_row = [args.nruns, args.nepisodes, args.temperature, args.lr_pol, args.lr_J, args.lr_M,
-                args.tradeoff, mean_return, std_return]
+                args.gamma, args.tradeoff, mean_return, std_return, mean_step]
     csvData.append(data_row)
     with open(file_name, style) as csvFile:
         writer = csv.writer(csvFile)
@@ -133,8 +133,8 @@ def save_csv(args, file_name, mean_return, std_return):
 def run_agent(outputinfo, features, nepisodes,
               frozen_states, nfeatures, nactions, num_states,
               temperature, gamma, lr_J, lr_M, lr_pol, tradeoff, rng):
-    history = np.zeros((nepisodes, 2),
-                       dtype=np.float32)  # 1. Steps, 2. Return
+    history = np.zeros((nepisodes, 3),
+                       dtype=np.float32)  # 1. Steps, 2. Return 3. Sum of Reward
     # storage the weights of the trained model
     weight_policy_store = np.zeros((nepisodes, num_states, nactions),
                                    dtype=np.float32)
@@ -176,51 +176,69 @@ def run_agent(outputinfo, features, nepisodes,
             current_gamma *= gamma
         phi_list.append(features(observation))  # last observation
         return_val = np.dot(np.array(reward_list), np.array(gamma_list))
+        # print("episode: ", episode)
+        # print("reward: ", reward_list)
 
         # updates of the weight matrix
         episode_length = len(reward_list)
+        temp_weight_J = np.zeros_like(weight_J)
+        temp_weight_Jtilda = np.zeros_like(weight_Jtilda)
+        temp_weight_M = np.zeros_like(weight_M)
+        temp_weight_policy = np.zeros_like(policy.weights)
+
+        J0[phi_list[0]] += lr_J * (return_val - J0[phi_list[0]])  # initial J(x_0) estimate
         for t in range(episode_length):
             new_reward = np.array(reward_list[t:])
             reward_j = np.dot(new_reward,
-                              np.array(gamma_list[0:new_reward.shape[0]]))  # r_{t} + gamma * r_{t+1} + gamma^2 * r_{t+2}...
+                              np.array(
+                                  gamma_list[0:new_reward.shape[0]]))  # r_{t} + gamma * r_{t+1} + gamma^2 * r_{t+2}...
             reward_m = reward_j ** 2.0  # (r_{t} + gamma * r_{t+1} + gamma^2 * r_{t+2}...)^2
-            update_j = lr_J * (reward_j - weight_J[phi_list[t], action_list[t]])
-            weight_J[phi_list[t], action_list[t]] += update_j  # w_J^{episode}
-            weight_M[phi_list[t], action_list[t]] += lr_M * (
-                    reward_m - weight_M[phi_list[t], action_list[t]])  # w_M^{episode}
-            J0[phi_list[0]] += lr_J * (reward_j - J0[phi_list[0]])  # initial J(x_0) estimate
-            if t > 0:
-                new_reward = np.array(reward_list[ 0:t - 1])
-                weight_Jtilda[phi_list[t], action_list[t]] += update_j * gamma * np.dot(new_reward,
-                                                                                        np.array(gamma_list[
-                                                                                                 0:new_reward.shape[0]]))  # w_Jtilda^{episode} weighted J matrix
+            temp_weight_J[phi_list[t], action_list[t]] += (lr_J * reward_j) - (
+                    lr_J * weight_J[phi_list[t], action_list[t]])  # w_J^{episode}
+            if tradeoff >0.0:
+                temp_weight_M[phi_list[t], action_list[t]] += lr_M * reward_m - (
+                        lr_M * weight_M[phi_list[t], action_list[t]])  # w_M^{episode}
+                if t > 0:
+                    new_reward = np.array(reward_list[0:t - 1])
+                    temp_weight_Jtilda[phi_list[t], action_list[t]] += lr_J * gamma * np.dot(new_reward, (np.array(
+                        gamma_list[0:new_reward.shape[0]])**2.0)) * (reward_j - weight_Jtilda[
+                        phi_list[t], action_list[t]])  # w_Jtilda^{episode} weighted J matrix
+
+        for t in range(episode_length):
             # update for policy parameter
             actions_pmf = policy.pmf(phi_list[t])
-            policy_gradient_update = lr_pol * (weight_J[phi_list[t], action_list[t]] - tradeoff * (
-                    weight_M[phi_list[t], action_list[t]] + 2 * weight_Jtilda[phi_list[t], action_list[t]] -
-                    2 * J0[phi_list[t]] * weight_J[phi_list[t], action_list[t]]))
-            policy.weights[phi_list[t], :] -= policy_gradient_update * actions_pmf
-            policy.weights[phi_list[t], action_list[t]] += policy_gradient_update
+            new_tradeoff = lr_pol * tradeoff
+            policy_gradient_update = lr_pol * (weight_J[phi_list[t], action_list[t]]) - (new_tradeoff * weight_M[
+                phi_list[t], action_list[t]]) + (2 * new_tradeoff * weight_Jtilda[phi_list[t], action_list[t]]) - (
+                                                 new_tradeoff * 2 * J0[phi_list[0]] * weight_J[
+                                             phi_list[t], action_list[t]])
+            temp_weight_policy[phi_list[t], :] -= policy_gradient_update * actions_pmf
+            temp_weight_policy[phi_list[t], action_list[t]] += policy_gradient_update
+        policy.weights += temp_weight_policy
+
+        weight_J += temp_weight_J
+        weight_M += temp_weight_M
+        weight_Jtilda += temp_weight_Jtilda
 
         history[episode, 0] = episode_length
         history[episode, 1] = return_val
+        history[episode, 2] = sum(reward_list)
         weight_policy_store[episode] = policy.weights
 
     outputinfo.weight_policy.append(weight_policy_store)
     outputinfo.history.append(history)
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gamma', help='Discount factor', type=float, default=0.99)
-    parser.add_argument('--lr_J', help="Learning rate for J value", type=float, default=0.05)
+    parser.add_argument('--gamma', help='Discount factor', type=float, default=0.7)
+    parser.add_argument('--lr_J', help="Learning rate for J value", type=float, default=0.1)
     parser.add_argument('--lr_M', help="Learning rate for M value", type=float, default=0.05)
     parser.add_argument('--lr_pol', help="Learning rate for policy", type=float, default=0.001)
     parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=0.05)
-    parser.add_argument('--tradeoff', help="Tradeoff parameter for mean-variance obj", type=float, default=0.1)
-    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=100)
-    parser.add_argument('--nruns', help="Number of runs", type=int, default=50)
-    parser.add_argument('--seed', help="seed value for experiment", type=int, default=10)
+    parser.add_argument('--tradeoff', help="Tradeoff parameter for mean-variance obj", type=float, default=0.0)
+    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=1500)
+    parser.add_argument('--nruns', help="Number of runs", type=int, default=15)
+    parser.add_argument('--seed', help="seed value for experiment", type=int, default=20)
 
     args = parser.parse_args()
 
@@ -234,7 +252,7 @@ if __name__ == '__main__':
 
     dir_name = "R" + str(args.nruns) + "_E" + str(args.nepisodes) + "_mu" + str(args.tradeoff) + \
                "_LRJ" + str(args.lr_J) + "_LRM" + str(args.lr_M) + "_LRP" + str(args.lr_pol) + \
-               "_temp" + str(args.temperature) + "_seed" + str(args.seed)
+               "_gamma" + str(args.gamma) + "_temp" + str(args.temperature) + "_seed" + str(args.seed)
 
     dir_name = os.path.join(outer_dir, dir_name)
     if not os.path.exists(dir_name):
@@ -266,7 +284,8 @@ if __name__ == '__main__':
     hist = np.asarray(outputinfo.history)
     last_meanreturn = np.round(np.mean(hist[:, :-50, 1]), 2)  # Last 100 episodes mean value of the return
     last_stdreturn = np.round(np.std(hist[:, :-50, 1]), 2)  # Last 100 episodes std. dev value of the return
+    last_meanstep = np.round(np.mean(hist[:, :-50, 0]), 2)  # Last 100 episodes Steps mean
 
     np.save(os.path.join(dir_name, 'Weights_Policy.npy'), np.asarray(outputinfo.weight_policy))
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
-    save_csv(args, os.path.join(outer_dir, "ParamtersDone.csv"), last_meanreturn, last_stdreturn)
+    save_csv(args, os.path.join(outer_dir, "ParamtersDone.csv"), last_meanreturn, last_stdreturn, last_meanstep)

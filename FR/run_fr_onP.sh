@@ -1,14 +1,14 @@
 #!/bin/bash
-Lr_p=(1e-3)
-Lr_c=(1e-1 5e-1)
-Lr_sigma=(1e-2)
-Lam=(0.5)
-Temp=(5e-2 1e-3)
-PsiFixed=("True")
-PsiRate=(200)
-Psi=(0.0)
+Lr_p=(5e-3)
+Lr_c=(0.5)
+Lr_sigma=(0.05)
+Lam=(0.6)
+Temp=(0.5)
+PsiFixed=("False")
+PsiRate=(400)
+Psi=(0.05)
 Seed=(10)
-Episodes=(2000)
+Episodes=(1000)
 path_name="./"
 file_name="SAC_trace_OnP.py"
 
