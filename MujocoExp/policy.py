@@ -4,12 +4,14 @@ NN Policy with KL Divergence Constraint (PPO / TRPO)
 Written by Patrick Coady (pat-coady.github.io)
 """
 import numpy as np
-import tensorflow as tf, os
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+import os
 
 
 class Policy(object):
     """ NN-based policy approximation """
-    def __init__(self, env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi,name_folder, seed):
+    def __init__(self, env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi,name_folder, seed, save_folder):
         """
         Args:
             obs_dim: num observation dimensions (int)
@@ -32,6 +34,7 @@ class Policy(object):
         self.psi = psi
         self.name_folder = name_folder # folder name where final model is saved
         self.seed = seed
+        self.save_folder = save_folder
         self._build_graph()
         self._init_session()
 
@@ -222,7 +225,7 @@ class Policy(object):
 
     def close_sess(self):
         """ Close TensorFlow session """
-        model_directory = os.path.join("saved_models", self.name_folder, "Seed"+str(self.seed))
+        model_directory = os.path.join(self.save_folder, "saved_models", self.name_folder, "Seed"+str(self.seed))
         if not os.path.exists(model_directory):
             os.makedirs(model_directory)
         with self.g.as_default():

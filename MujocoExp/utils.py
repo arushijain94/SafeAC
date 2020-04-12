@@ -61,14 +61,15 @@ class Scaler(object):
 
 class Logger(object):
     """ Simple training logger: saves to file and optionally prints to stdout """
-    def __init__(self, logname, now):
+    def __init__(self, logname, now, save_folder):
         """
         Args:
             logname: name for log (e.g. 'Hopper-v1')
             now: unique sub-directory name (e.g. date/time string)
         """
-        path = os.path.join('log-files', logname, now)
-        os.makedirs(path)
+        path = os.path.join(save_folder, 'log-files', logname, now)
+        if not os.path.exists(path):
+            os.makedirs(path)
         filenames = glob.glob('*.py')  # put copy of all python files in log_dir
         for filename in filenames:     # for reference
             shutil.copy(filename, path)

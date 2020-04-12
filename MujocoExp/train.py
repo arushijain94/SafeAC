@@ -26,7 +26,6 @@ in the OpenAI Gym (https://gym.openai.com/). Testing was focused on
 the MuJoCo control tasks.
 """
 import gym
-from gym_extensions.continuous import box2d
 import numpy as np
 from policy import Policy
 from value_function import NNValueFunction
@@ -369,19 +368,20 @@ def main(env_name, num_episodes, seed, gamma, lam, psi, kl_targ, batch_size, hid
         policy_logvar: natural log of initial policy variance
     """
     killer = GracefulKiller()
-    name_folder = env_name + "_Psi" + str(psi)  # + "_" + datetime.utcnow().strftime("%b-%d_%H:%M:%S")
+    save_folder = "../../VarianceReduceResults/MujocoExp"
+    name_folder = env_name + "_Psi" + str(psi)
 
     env, obs_dim, act_dim = init_gym(env_name)
     obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
     # now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
-    now = "Seed" + str(seed)
-    logger = Logger(logname=name_folder, now=now)
+    now_seed = "Seed" + str(seed)
+    logger = Logger(logname=name_folder, now=now_seed, save_folder = save_folder)
     # aigym_path = os.path.join('/tmp', name_folder, now)
     # env = wrappers.Monitor(env, aigym_path, force=True)
     scaler = Scaler(obs_dim)
     val_func = NNValueFunction(obs_dim, hid1_mult)
     var_func = NNVarianceFunction(obs_dim, hid1_mult)
-    policy = Policy(env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi, name_folder, seed)
+    policy = Policy(env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi, name_folder, seed, save_folder)
     # run a few episodes of untrained policy to initialize scaler:
     run_policy(env, policy, scaler, gamma, logger, episodes=5)
     gamma_var = gamma * lam
@@ -415,10 +415,7 @@ def main(env_name, num_episodes, seed, gamma, lam, psi, kl_targ, batch_size, hid
 
     scale, offset = scaler.get()
     data = {'SCALE': scale, 'OFFSET': offset}
-    folder_save = os.path.join("saved_models", name_folder)
-    if not os.path.exists(folder_save):
-        os.makedirs(folder_save)
-    folder_save = os.path.join(folder_save, "Seed" + str(seed))
+    folder_save = os.path.join(save_folder, "saved_models", name_folder, now_seed)
     if not os.path.exists(folder_save):
         os.makedirs(folder_save)
     directory_to_store_data = folder_save
