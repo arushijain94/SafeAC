@@ -2,7 +2,7 @@
 """
 PPO: Proximal Policy Optimization
 
-Written by Patrick Coady (pat-coady.github.io)
+Built on top of Written by Patrick Coady (pat-coady.github.io)
 
 PPO uses a loss function and gradient descent to approximate
 Trust Region Policy Optimization (TRPO). See these papers for
@@ -42,6 +42,7 @@ import _pickle as pickle
 
 class GracefulKiller:
     """ Gracefully exit program on CTRL-C """
+
     def __init__(self):
         self.kill_now = False
         signal.signal(signal.SIGINT, self.exit_gracefully)
@@ -189,6 +190,7 @@ def add_value(trajectories, val_func):
         values = val_func.predict(observes)
         trajectory['values'] = values
 
+
 # should be called after calculating the value of state: add_value()
 def add_delta(trajectories, gamma):
     """ Adds td error at all time steps to the trajectory
@@ -206,13 +208,14 @@ def add_delta(trajectories, gamma):
         deltas = rewards - values + np.append(values[1:] * gamma, 0)
         trajectory['deltas'] = deltas
 
+
 # it is discounted reward for variance of states : where reward_var = delta^square
 def add_disc_sum_delta_square(trajectories, gamma_var):
     """ Adds discounted sum of rewards to all time steps of all trajectories
 
     Args:
         trajectories: as returned by run_policy()
-        gamma_var: discount of variance: gamma* lam
+        gamma_var: discount of variance: square(gamma* lam)
 
     Returns:
         None (mutates trajectories dictionary to add 'disc_sum_delta_square')
@@ -222,6 +225,7 @@ def add_disc_sum_delta_square(trajectories, gamma_var):
         deltas_square = np.square(deltas)
         disc_sum_delta_square = discount(deltas_square, gamma_var)
         trajectory['disc_sum_delta_square'] = disc_sum_delta_square
+
 
 # added variance of return of a state at each point in trajectory
 def add_variance(trajectories, var_func):
@@ -239,6 +243,7 @@ def add_variance(trajectories, var_func):
         observes = trajectory['observes']
         variances = var_func.predict(observes)
         trajectory['variances'] = variances
+
 
 def add_gae(trajectories, gamma, lam):
     """ Add generalized advantage estimator.
@@ -266,6 +271,7 @@ def add_gae(trajectories, gamma, lam):
         advantages = discount(tds, gamma * lam)
         trajectory['advantages'] = advantages
 
+
 # adding advantage function calculator for variance of state
 def add_gae_var(trajectories, gamma_var, lam):
     """ Add generalized advantage estimator for finding advantage of  variance:  sum(gamma*lambda)^k * delta_var
@@ -289,6 +295,7 @@ def add_gae_var(trajectories, gamma_var, lam):
         tds_var = deltas_square + np.append(variances[1:] * gamma_var, 0) - variances
         advantages_var = discount(tds_var, gamma_var * lam)
         trajectory['advantages_var'] = advantages_var
+
 
 def build_train_set(trajectories):
     """
@@ -316,7 +323,8 @@ def build_train_set(trajectories):
     return observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square
 
 
-def log_batch_stats(observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square, logger, episode, run):
+def log_batch_stats(observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square, logger, episode,
+                    seed):
     """ Log various batch statistics """
     logger.log({'_mean_obs': np.mean(observes),
                 '_min_obs': np.min(observes),
@@ -343,11 +351,11 @@ def log_batch_stats(observes, actions, advantages, disc_sum_rew, advantages_var,
                 '_max_rew_var': np.max(disc_sum_delta_square),
                 '_std_rew_var': np.var(disc_sum_delta_square),
                 '_Episode': episode,
-                '_Run': run
+                '_Seed': seed
                 })
 
 
-def main(env_name, num_episodes, num_runs, gamma, lam, psi, kl_targ, batch_size, hid1_mult, policy_logvar):
+def main(env_name, num_episodes, seed, gamma, lam, psi, kl_targ, batch_size, hid1_mult, policy_logvar):
     """ Main training loop
 
     Args:
@@ -361,62 +369,67 @@ def main(env_name, num_episodes, num_runs, gamma, lam, psi, kl_targ, batch_size,
         policy_logvar: natural log of initial policy variance
     """
     killer = GracefulKiller()
-    run = 0
-    name_folder = env_name + "_Psi" + str(psi) + "_" + datetime.utcnow().strftime("%b-%d_%H:%M:%S")
+    name_folder = env_name + "_Psi" + str(psi)  # + "_" + datetime.utcnow().strftime("%b-%d_%H:%M:%S")
 
-    while run < num_runs:
-        env, obs_dim, act_dim = init_gym(env_name)
-        obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
-        # now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
-        logger = Logger(logname=name_folder, now="Run"+str(run))
-        # aigym_path = os.path.join('/tmp', env_name, now)ls
-        #env = wrappers.Monitor(env, aigym_path, force=True)
-        scaler = Scaler(obs_dim)
-        val_func = NNValueFunction(obs_dim, hid1_mult)
-        var_func = NNVarianceFunction(obs_dim, hid1_mult)
-        policy = Policy(env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi)
-        # run a few episodes of untrained policy to initialize scaler:
-        run_policy(env, policy, scaler, gamma, logger, episodes=5)
-        gamma_var = gamma * lam
-        episode = 0
-        while episode < num_episodes:
-            trajectories = run_policy(env, policy, scaler, gamma, logger, episodes=batch_size)
-            episode += len(trajectories)
-            add_value(trajectories, val_func)  # add estimated values to episodes
-            add_delta(trajectories, gamma)
-            add_variance(trajectories, var_func)  # add estimated variances to episodes
-            add_disc_sum_rew(trajectories, gamma)  # calculated discounted sum of Rs
-            add_disc_sum_delta_square(trajectories, gamma_var)  # calculated discounted sum of delta square for estimating variance
-            add_gae(trajectories, gamma, lam)  # calculate advantage
-            add_gae_var(trajectories, gamma_var, lam)  # calculate advantage for variance
-            # concatenate all episodes into single NumPy arrays
+    env, obs_dim, act_dim = init_gym(env_name)
+    obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
+    # now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
+    now = "Seed" + str(seed)
+    logger = Logger(logname=name_folder, now=now)
+    # aigym_path = os.path.join('/tmp', name_folder, now)
+    # env = wrappers.Monitor(env, aigym_path, force=True)
+    scaler = Scaler(obs_dim)
+    val_func = NNValueFunction(obs_dim, hid1_mult)
+    var_func = NNVarianceFunction(obs_dim, hid1_mult)
+    policy = Policy(env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi, name_folder, seed)
+    # run a few episodes of untrained policy to initialize scaler:
+    run_policy(env, policy, scaler, gamma, logger, episodes=5)
+    gamma_var = gamma * lam
+    episode = 0
+    while episode < num_episodes:
+        trajectories = run_policy(env, policy, scaler, gamma, logger, episodes=batch_size)
+        episode += len(trajectories)
+        add_value(trajectories, val_func)  # add estimated values to episodes
+        add_delta(trajectories, gamma)
+        add_variance(trajectories, var_func)  # add estimated variances to episodes
+        add_disc_sum_rew(trajectories, gamma)  # calculated discounted sum of Rs
+        add_disc_sum_delta_square(trajectories,
+                                  gamma_var)  # calculated discounted sum of delta square for estimating variance
+        add_gae(trajectories, gamma, lam)  # calculate advantage
+        add_gae_var(trajectories, gamma_var, lam)  # calculate advantage for variance
+        # concatenate all episodes into single NumPy arrays
 
-            observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square = build_train_set(trajectories)
-            # add various stats to training log:
-            log_batch_stats(observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square, logger, episode, run)
-            policy.update(observes, actions, advantages, advantages_var, logger)  # update policy
-            val_func.fit(observes, disc_sum_rew, logger)  # update value function
-            var_func.fit(observes, disc_sum_delta_square, logger)  # update variance function
-            logger.write(display=True)  # write logger results to file and stdout
-            if killer.kill_now:
-                if input('Terminate training (y/[n])? ') == 'y':
-                    break
-                killer.kill_now = False
+        observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square = build_train_set(
+            trajectories)
+        # add various stats to training log:
+        log_batch_stats(observes, actions, advantages, disc_sum_rew, advantages_var, disc_sum_delta_square, logger,
+                        episode, seed)
+        policy.update(observes, actions, advantages, advantages_var, logger)  # update policy
+        val_func.fit(observes, disc_sum_rew, logger)  # update value function
+        var_func.fit(observes, disc_sum_delta_square, logger)  # update variance function
+        logger.write(display=True)  # write logger results to file and stdout
+        if killer.kill_now:
+            if input('Terminate training (y/[n])? ') == 'y':
+                break
+            killer.kill_now = False
 
-        scale, offset = scaler.get()
-        data = {'SCALE': scale, 'OFFSET': offset}
-        directory_to_store_data = './saved_models/' + name_folder +"_Run"+str(run) + '/'
-        if not os.path.exists(directory_to_store_data):
-            os.makedirs(directory_to_store_data)
-        file_name = directory_to_store_data + 'scale_and_offset.pkl'
-        with open(file_name, 'wb') as f:
-            pickle.dump(data, f)
+    scale, offset = scaler.get()
+    data = {'SCALE': scale, 'OFFSET': offset}
+    folder_save = os.path.join("saved_models", name_folder)
+    if not os.path.exists(folder_save):
+        os.makedirs(folder_save)
+    folder_save = os.path.join(folder_save, "Seed" + str(seed))
+    if not os.path.exists(folder_save):
+        os.makedirs(folder_save)
+    directory_to_store_data = folder_save
+    file_name = directory_to_store_data + 'scale_and_offset.pkl'
+    with open(file_name, 'wb') as f:
+        pickle.dump(data, f)
 
-        logger.close()
-        policy.close_sess()
-        val_func.close_sess()
-        var_func.close_sess()
-        run += 1
+    logger.close()
+    policy.close_sess()
+    val_func.close_sess()
+    var_func.close_sess()
 
 
 if __name__ == "__main__":
@@ -425,7 +438,7 @@ if __name__ == "__main__":
     parser.add_argument('env_name', type=str, help='OpenAI Gym environment name')
     parser.add_argument('-n', '--num_episodes', type=int, help='Number of episodes to run',
                         default=1000)
-    parser.add_argument('-r', '--num_runs', type=int, help='Number of runs',
+    parser.add_argument('-s', '--seed', type=int, help='Seed Value',
                         default=1)
     parser.add_argument('-g', '--gamma', type=float, help='Discount factor', default=0.995)
     parser.add_argument('-l', '--lam', type=float, help='Lambda for Generalized Advantage Estimation',

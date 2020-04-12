@@ -9,7 +9,7 @@ import tensorflow as tf, os
 
 class Policy(object):
     """ NN-based policy approximation """
-    def __init__(self, env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi):
+    def __init__(self, env_name, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, psi,name_folder, seed):
         """
         Args:
             obs_dim: num observation dimensions (int)
@@ -30,6 +30,8 @@ class Policy(object):
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.psi = psi
+        self.name_folder = name_folder # folder name where final model is saved
+        self.seed = seed
         self._build_graph()
         self._init_session()
 
@@ -47,7 +49,7 @@ class Policy(object):
             self.init = tf.global_variables_initializer()
 
     def _saver_object(self):
-        self.saver = tf.train.Saver(max_to_keep=10, keep_checkpoint_every_n_hours=2)
+        self.saver = tf.train.Saver(max_to_keep=50, keep_checkpoint_every_n_hours=1)
 
     def _placeholders(self):
         """ Input placeholders"""
@@ -220,9 +222,9 @@ class Policy(object):
 
     def close_sess(self):
         """ Close TensorFlow session """
-        model_directory = './saved_models/' + self.env_name + '_psi'+str(self.psi) + '/'
+        model_directory = os.path.join("saved_models", self.name_folder, "Seed"+str(self.seed))
         if not os.path.exists(model_directory):
             os.makedirs(model_directory)
         with self.g.as_default():
-            self.saver.save(self.sess, model_directory + 'final')
+            self.saver.save(self.sess, model_directory + "/final")
         self.sess.close()
