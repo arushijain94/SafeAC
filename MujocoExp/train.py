@@ -419,7 +419,7 @@ def main(env_name, num_episodes, seed, gamma, lam, psi, kl_targ, batch_size, hid
     if not os.path.exists(folder_save):
         os.makedirs(folder_save)
     directory_to_store_data = folder_save
-    file_name = directory_to_store_data + 'scale_and_offset.pkl'
+    file_name = directory_to_store_data + "/scale_and_offset.pkl"
     with open(file_name, 'wb') as f:
         pickle.dump(data, f)
 
