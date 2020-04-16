@@ -1,9 +1,9 @@
 #!/bin/bash
-Lr_pol=(5e-3)
+Lr_pol=(1e-3)
 Lr_J=(0.05)
 Temp=(1.0)
-Tradeoff=(0.01 0.05 0.1 0.15)
-Lr_M=(0.05 0.01)
+Tradeoff=(1e-4 1e-3 5e-3)
+Lr_M=(0.01 0.0025 5e-3)
 Gamma=(0.99)
 path_name="./"
 file_name="VarianceAdjustedAC.py"
