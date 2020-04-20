@@ -81,18 +81,18 @@ class SoftmaxPolicy:
 
 
 class StateActionLearning:
-    def __init__(self, gamma, lmbda, lr, weights, trace, variance):
+    def __init__(self, gamma, lmbda, lr, weights, variance):
         self.lr = lr
         self.gamma = gamma
         self.lmbda = lmbda
         self.weights = weights
-        self.trace = trace
         self.variance = variance  # binary value (0: its is Q value, 1: sigma(s,a) value)
 
     def start(self, phi, action):
         self.last_phi = phi
         self.last_action = action
         self.last_value = self.value(phi, action)
+        self.trace = np.zeros_like(self.weights)
 
     def value(self, phi, action=None):
         if action is None:
@@ -204,15 +204,15 @@ def str2bool(v):
         return False
 
 
-def save_csv(args, file_name, mean_return, std_return):
+def save_csv(args, file_name, mean_return, std_return, steps):
     csvData = []
     style = 'a'
     if not os.path.exists(file_name):
         style = 'w'
-        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_fixed', 'psi_rate', 'lambda','mean', 'std']
+        csvHeader = ['runs', 'episodes', 'temp', 'lr_p', 'lr_c', 'lr_var', 'psi', 'psi_fixed', 'psi_rate', 'lambda','mean', 'std', 'step']
         csvData.append(csvHeader)
     data_row = [args.nruns, args.nepisodes, args.temperature, args.lr_theta, args.lr_critic, args.lr_sigma,
-                args.psi, args.psiFixed, args.psiRate, args.lmbda, mean_return, std_return]
+                args.psi, args.psiFixed, args.psiRate, args.lmbda, mean_return, std_return, steps]
     csvData.append(data_row)
     with open(file_name, style) as csvFile:
         writer = csv.writer(csvFile)
@@ -238,13 +238,11 @@ def run_agent(outputinfo, features, nepisodes,
 
     # Action_critic is Q value of state-action pair
     weights_QVal = np.random.rand(nfeatures, nactions)
-    trace_Qval = np.zeros_like(weights_QVal)
-    action_critic = StateActionLearning(gamma_Q, lmbda, lr_critic, weights_QVal, trace_Qval, 0)
+    action_critic = StateActionLearning(gamma_Q, lmbda, lr_critic, weights_QVal, 0)
 
     # Variance is sigma of state-action pair
     weights_var = np.random.rand(nfeatures, nactions)
-    trace_var = np.zeros_like(weights_var)
-    sigma = StateActionLearning(gamma_var, lmbda, lr_sigma, weights_var, trace_var, 1)
+    sigma = StateActionLearning(gamma_var, lmbda, lr_sigma, weights_var, 1)
     # Fixing Psi rate
     current_psi = psi
     if not psi_fixed:
@@ -259,7 +257,6 @@ def run_agent(outputinfo, features, nepisodes,
         observation = env.reset()
         phi = features(observation)
         action = policy.sample(phi)
-
         action_critic.start(phi, action)
         sigma.start(phi, action)
 
@@ -338,7 +335,7 @@ if __name__ == '__main__':
     outer_dir = "../../Neurips2020Results/Results_AC"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
-    outer_dir = os.path.join(outer_dir, "FourRoomSACOnP")
+    outer_dir = os.path.join(outer_dir, "FourRoomSACCorrected")
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
 
@@ -382,13 +379,14 @@ if __name__ == '__main__':
         x.join()
 
     hist = np.asarray(outputinfo.history)
-    last_meanreturn = np.round(np.mean(hist[:, :-50, 1]),2)  # Last 100 episodes mean value of the return
-    last_stdreturn = np.round(np.std(hist[:, :-50, 1]),2)  # Last 100 episodes std. dev value of the return
+    last_meanreturn = np.round(np.mean(hist[:, :-20, 1]),2)  # Last 100 episodes mean value of the return
+    last_stdreturn = np.round(np.std(hist[:, :-20, 1]),2)  # Last 100 episodes std. dev value of the return
+    last_steps = np.round(np.mean(hist[:, :-20, 0]), 2)  # Last 100 episodes mean value of the steps
 
     np.save(os.path.join(dir_name, 'Weights_Policy.npy'), np.asarray(outputinfo.weight_policy))
     np.save(os.path.join(dir_name, 'Weights_Q.npy'), np.asarray(outputinfo.weight_Q))
     np.save(os.path.join(dir_name, 'Weights_var.npy'), np.asarray(outputinfo.weight_var))
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
-    save_csv(args, os.path.join(outer_dir, "ParamtersDone.csv"), last_meanreturn, last_stdreturn)
+    save_csv(args, os.path.join(outer_dir, "ParamtersCorrected.csv"), last_meanreturn, last_stdreturn, last_steps)
 
 # best till now: c =0.05, theta = 1e-3, temp= 0.05, lam =0.6, psi 0.0
