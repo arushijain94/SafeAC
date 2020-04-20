@@ -137,15 +137,15 @@ class PolicyGradient:
         self.policy = policy
         self.psi = psi
 
-    def update(self, phi, action, critic, sigma, current_psi):
+    def update(self, phi, action, critic, sigma, current_psi, I_Q, I_sigma):
         actions_pmf = self.policy.pmf(phi)
         if self.psi != 0.0:  # variance as regularization factor to optimization criterion
             psi = current_psi
-            regularization = -self.lr * psi * sigma
+            regularization = -self.lr * psi * I_sigma * sigma
             self.policy.weights[phi, :] -= regularization * actions_pmf
             self.policy.weights[phi, action] += regularization
 
-        Q_val = self.lr * critic
+        Q_val = self.lr * I_Q * critic
         self.policy.weights[phi, :] -= Q_val * actions_pmf
         self.policy.weights[phi, action] += Q_val
 
@@ -263,6 +263,8 @@ def run_agent(outputinfo, features, nepisodes,
         step = 0
         done = False
         sum_td_error = 0.0
+        I_Q = 1.
+        I_sigma = 1.
         while done != True:
             old_observation = observation
             old_phi = phi
@@ -290,9 +292,11 @@ def run_agent(outputinfo, features, nepisodes,
                 sigma_val = 0.0
 
             critic_val = action_critic.value(old_phi, old_action)
-            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, current_psi)
+            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, current_psi, I_Q, I_sigma)
 
             step += 1
+            I_Q *= gamma_Q
+            I_sigma *= np.pow(gamma_var * lmbda, 2.)
         if current_psi < psi and not psi_fixed :
             current_psi = np.round(current_psi+psi_inc,4)
 
