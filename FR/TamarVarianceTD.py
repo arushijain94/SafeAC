@@ -287,15 +287,17 @@ def run_agent(outputinfo, features, nepisodes,
 
             # Critic update
             action_critic_J.update(phi, action, reward, done)
+            critic_J_value = action_critic_J.value(phi, action)
             if mu != 0.0:
-                action_critic_M.update(phi, action, reward, done)
+                action_critic_M.update(phi, action, reward, critic_J_value, done)
                 action_critic_M_value = action_critic_M.value(old_phi, old_action)
+                initial_state_J_value = np.dot(policy.pmf(initial_state), action_critic_J.value(initial_state))
             else:
                 action_critic_M_value = 0.
-
+                initial_state_J_value = 0.
             policy_improvement.update(old_phi, old_action, action_critic_J.value(old_phi, old_action),
                                       action_critic_M_value, G,
-                                      action_critic_J.value(initial_state), I_J, I_M)
+                                      initial_state_J_value, I_J, I_M)
 
             step += 1
             I_J *= gamma

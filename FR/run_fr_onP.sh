@@ -1,15 +1,15 @@
 #!/bin/bash
-Lr_p=(5e-2)
+Lr_p=(0.01)
 Lr_c=(0.5)
-Lr_sigma=(0.075)
+Lr_sigma=(0.4)
 Lam=(0.6)
 Temp=(0.5)
 PsiFixed=("True")
 PsiRate=(400)
-Psi=(0.05 0.1 0.25)
-Seed=(1)
-run=5
-Episodes=(500)
+Psi=(0.5)
+Seed=(2)
+run=100
+Episodes=(1000)
 path_name="./"
 file_name="SAC_trace_OnP.py"
 

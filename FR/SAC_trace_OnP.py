@@ -319,10 +319,10 @@ if __name__ == '__main__':
     parser.add_argument('--gamma_var', help='Discount factor for Variance in return of state-action value', type=float,
                         default=0.99)
     parser.add_argument('--lmbda', help='Lambda', type=float, default=0.6)
-    parser.add_argument('--lr_critic', help="Learning rate for Q value", type=float, default=0.05)
-    parser.add_argument('--lr_theta', help="Learning rate for policy parameterization theta", type=float, default=0.001)
+    parser.add_argument('--lr_critic', help="Learning rate for Q value", type=float, default=0.5)
+    parser.add_argument('--lr_theta', help="Learning rate for policy parameterization theta", type=float, default=0.01)
     parser.add_argument('--lr_sigma', help="Learning rate for sigma variance of return", type=float, default=0.02)
-    parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=0.05)
+    parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=0.5)
     parser.add_argument('--psi', help="Psi regularizer for Variance in return", type=float, default=0.0)
     parser.add_argument('--psiFixed', help="Psi regularizer is held fixed", type=str2bool,
                         default=True)  # True: fixed psi, False:Variable Psi
@@ -330,7 +330,7 @@ if __name__ == '__main__':
                         default=1)  # Num of episodes by which psi value should change from zero to psi value
     parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=1000)
     parser.add_argument('--nruns', help="Number of runs", type=int, default=100)
-    parser.add_argument('--seed', help="seed value for experiment", type=int, default=10)
+    parser.add_argument('--seed', help="seed value for experiment", type=int, default=1)
 
     args = parser.parse_args()
     now_time = datetime.datetime.now()
@@ -393,4 +393,4 @@ if __name__ == '__main__':
     np.save(os.path.join(dir_name, 'History.npy'), np.asarray(outputinfo.history))
     save_csv(args, os.path.join(outer_dir, "ParamtersCorrected.csv"), last_meanreturn, last_stdreturn, last_steps)
 
-# best till now: c =0.05, theta = 1e-3, temp= 0.05, lam =0.6, psi 0.0
+# Psi0.0_LRC0.5_LRTheta0.01_LRV0.0_temp0.5_PRate400_lambda0.6_PTypeF

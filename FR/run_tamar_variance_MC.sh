@@ -1,11 +1,11 @@
 #!/bin/bash
-Lr_pol=(1e-3)
-Lr_J=(0.1 0.5 0.05)
+Lr_pol=(1e-2)
+Lr_J=(0.1 0.05)
 Temp=(1.)
 Tradeoff=(0.0)
 Lr_M=(0.0)
-Runs=(10)
-Episodes=(1000)
+Runs=(100)
+Episodes=(6000)
 path_name="./"
 file_name="TamarVarianceMC.py"
 

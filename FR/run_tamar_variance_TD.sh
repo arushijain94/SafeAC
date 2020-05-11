@@ -1,10 +1,10 @@
 #!/bin/bash
 Lr_pol=(1e-2)
-Lr_J=(0.5)
+Lr_J=(0.1)
 Temp=(1.0)
-Tradeoff=(0.0)
-Lr_M=(0.0)
-run=20
+Tradeoff=(0.005 0.01 0.02)
+Lr_M=(0.5)
+run=100
 episode=1000
 path_name="./"
 file_name="TamarVarianceTD.py"
