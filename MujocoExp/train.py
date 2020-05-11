@@ -38,7 +38,6 @@ import argparse
 import signal
 import _pickle as pickle
 
-
 class GracefulKiller:
     """ Gracefully exit program on CTRL-C """
 

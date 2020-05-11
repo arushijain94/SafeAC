@@ -8,7 +8,8 @@ tf.disable_v2_behavior()
 # import tensorflow as tf
 import numpy as np
 from sklearn.utils import shuffle
-
+from tensorflow.python.util import deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 class NNValueFunction(object):
     """ NN-based state-value function """
@@ -43,6 +44,7 @@ class NNValueFunction(object):
             print('Value Params -- h1: {}, h2: {}, h3: {}, lr: {:.3g}'
                   .format(hid1_size, hid2_size, hid3_size, self.lr))
             # 3 hidden layers with tanh activations
+
             out = tf.layers.dense(self.obs_ph, hid1_size, tf.tanh,
                                   kernel_initializer=tf.random_normal_initializer(
                                       stddev=np.sqrt(1 / self.obs_dim)), name="h1")

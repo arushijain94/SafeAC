@@ -8,7 +8,8 @@ tf.disable_v2_behavior()
 # import tensorflow as tf
 import numpy as np
 from sklearn.utils import shuffle
-
+from tensorflow.python.util import deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 class NNVarianceFunction(object):
     """ NN-based state-variance function """
