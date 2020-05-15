@@ -1,8 +1,8 @@
 #!/bin/bash
 Lr_pol=(1e-2)
-Lr_J=(0.1)
+Lr_J=(0.5)
 Temp=(1.0)
-Tradeoff=(0.005 0.01 0.02)
+Tradeoff=(0.03)
 Lr_M=(0.5)
 run=100
 episode=1000

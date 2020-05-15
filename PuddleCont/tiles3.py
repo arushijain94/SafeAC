@@ -70,7 +70,7 @@ def hashcoords(coordinates, m, readonly=False):
     elif m==None: return coordinates
 
 from math import floor, log
-from itertools import zip_longest as zip_longest
+from itertools import izip_longest as zip_longest
 
 def tiles (ihtORsize, numtilings, floats, ints=[], readonly=False):
     """returns num-tilings tile indices corresponding to the floats and ints"""

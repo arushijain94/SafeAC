@@ -1,17 +1,17 @@
 #!/bin/bash
 Lr_p=(0.01)
 Lr_c=(0.5)
-Lr_sigma=(0.4)
-Lam=(0.6)
-Temp=(0.5)
+Lr_sigma=(0.5)
+Lam=(1.0)
+Temp=(1.0)
 PsiFixed=("True")
 PsiRate=(400)
-Psi=(0.5)
-Seed=(2)
+Psi=(0.03 0.05 1.0)
+Seed=(10)
 run=100
 Episodes=(1000)
 path_name="./"
-file_name="SAC_trace_OnP.py"
+file_name="SAC_OnP.py"
 
 for temp in "${Temp[@]}"; do
 	for lr_p in "${Lr_p[@]}"; do

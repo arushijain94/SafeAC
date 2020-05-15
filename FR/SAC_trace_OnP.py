@@ -339,7 +339,7 @@ if __name__ == '__main__':
     outer_dir = "../../Neurips2020Results/Results_AC"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
-    outer_dir = os.path.join(outer_dir, "FourRoomSACCorrected")
+    outer_dir = os.path.join(outer_dir, "FourRoomSACWithoutTrace")
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
 
