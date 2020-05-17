@@ -62,7 +62,7 @@ class GreedyPolicy:
 class SoftmaxPolicy:
     def __init__(self, rng, nfeatures, nactions, temp=1.):
         self.rng = rng
-        self.weights = 0.5 * np.ones((nfeatures, nactions))  # positive weight initialization
+        self.weights = np.random.rand(nfeatures, nactions)  # positive weight initialization
         self.nactions = nactions
         self.temp = temp
 
@@ -118,11 +118,11 @@ class StateActionLearning:
                 update_target += self.gamma * (current_rho ** 2.0) * current_value
             else:
                 update_target += self.gamma * current_rho * current_value
-            self.last_value = current_value
-
         # Weight gradient update step
         tderror = update_target - self.last_value
         self.weights[self.last_phi, self.last_action] += self.lr * tderror
+        if not done:
+            self.last_value = current_value
         self.last_action = action
         self.last_phi = phi
         return tderror

@@ -46,7 +46,7 @@ class GreedyPolicy:
 class SoftmaxPolicy:
     def __init__(self, rng, nfeatures, nactions, temp=1.):
         self.rng = rng
-        self.weights = 0.5 * np.ones((nfeatures, nactions))  # positive weight initialization
+        self.weights = np.random.rand(nfeatures, nactions)  # positive weight initialization
         self.nactions = nactions
         self.temp = temp
 
@@ -71,53 +71,6 @@ class SoftmaxPolicy:
         else:
             prob[-1] = 1 - np.sum(prob[:-1])
         return int(self.rng.choice(self.nactions, p=prob))
-
-
-class MCEstimate:
-    # for getting the true value function of target policy
-    def __init__(self, nactions, nfeatures, nruns, features, frozen_states, gamma, weight_policy):
-        self.weight_policy = weight_policy
-        self.nactions = nactions
-        self.nfeatures = nfeatures
-        self.nruns = nruns
-        self.features = features
-        self.frozen_states = frozen_states
-        self.gamma = gamma
-        self.G_return = np.zeros((nfeatures, nactions))
-        self.visit_freq = np.zeros((nfeatures, nactions))
-        self.policy = GreedyPolicy(nactions, weight_policy)
-        self.return_sum = []
-
-    def run_agent_MC(self):
-        env = gym.make('Puddle-v1')
-        observation = env.reset()
-        states = []
-        actions = []
-        rewards = []
-        phi = self.features(observation)
-        done = False
-        while done != True:
-            old_observation = observation
-
-            action = self.policy.sample(phi)
-            observation, reward, done, _ = env.step(action)
-
-            # Frozen state receives a variable uniform reward[-15, 15]
-            if old_observation in self.frozen_states:
-                reward = np.random.normal(loc=0.0, scale=8.0)
-
-            states.append(phi)
-            actions.append(action)
-            rewards.append(reward)
-            phi = self.features(observation)
-            if done:
-                break
-
-        sum_reward = 0
-        for i in range(len(rewards) - 1, -1, -1):
-            sum_reward += (self.gamma ** i) * rewards[i]
-            self.G_return[states[i], actions[i]] += sum_reward
-            self.visit_freq[states[i], actions[i]] += 1
 
     # To get the actual estimate of the Q function under the given theta for the policy by MC method
     def getQEstimates(self):
@@ -163,11 +116,12 @@ class StateActionLearning:
                 update_target += self.gamma * (current_rho ** 2.0) * current_value
             else:
                 update_target += self.gamma * current_rho * current_value
-            self.last_value = current_value
 
         # Weight gradient update step
         tderror = update_target - self.last_value
         self.weights[self.last_phi, self.last_action] += self.lr * tderror
+        if not done:
+            self.last_value = current_value
         self.last_action = action
         self.last_phi = phi
         return tderror
@@ -296,7 +250,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
     nfeatures = len(features)
     nactions = env.action_space.n
 
-    get_variance_after_episode = 50
+    get_variance_after_episode = 100
     list_eps = list(np.arange(0, nepisodes, get_variance_after_episode))
     list_eps.append(nepisodes - 1)
     var_return_list = []
@@ -313,7 +267,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
     # Target policy is as softmax policy
     policy = SoftmaxPolicy(rng, nfeatures, nactions, temperature)
     # Action_critic is Q value of state-action pair
-    weights_QVal = np.ones((nfeatures, nactions)) * 0.5  # positive weight initialization
+    weights_QVal = np.zeros((nfeatures, nactions)) # positive weight initialization
     action_critic = StateActionLearning(gamma_Q, lr_critic, weights_QVal, policy, behavioral_policy, 0)
 
     # Variance is sigma of state-action pair
