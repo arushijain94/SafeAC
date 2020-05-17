@@ -34,10 +34,8 @@ class GreedyPolicy:
         self.nactions = nactions
         self.weights = weights
 
-    def value(self, phi, action=None):
-        if action is None:
-            return np.sum(self.weights[phi, :], axis=0)
-        return np.sum(self.weights[phi, action], axis=0)
+    def value(self, phi):
+        return np.sum(self.weights[phi, :], axis=0)
 
     def sample(self, phi):
         return int(np.argmax(self.value(phi)))
@@ -50,10 +48,8 @@ class SoftmaxPolicy:
         self.nactions = nactions
         self.temp = temp
 
-    def value(self, phi, action=None):
-        if action is None:
-            return np.sum(self.weights[phi, :], axis=0)
-        return np.sum(self.weights[phi, action], axis=0)
+    def value(self, phi):
+        return np.sum(self.weights[phi, :], axis=0)
 
     def pmf(self, phi):
         v = self.value(phi) / self.temp
@@ -71,20 +67,6 @@ class SoftmaxPolicy:
         else:
             prob[-1] = 1 - np.sum(prob[:-1])
         return int(self.rng.choice(self.nactions, p=prob))
-
-    # To get the actual estimate of the Q function under the given theta for the policy by MC method
-    def getQEstimates(self):
-        threads_internal = []
-        for r in range(self.nruns):
-            t = threading.Thread(target=self.run_agent_MC)
-            threads_internal.append(t)
-            t.start()
-        for x in threads_internal:
-            x.join()
-
-        self.visit_freq[self.visit_freq == 0.] = 1.
-        Q = np.divide(self.G_return, self.visit_freq)
-        return Q
 
 
 class StateActionLearning:

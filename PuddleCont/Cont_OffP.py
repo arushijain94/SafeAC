@@ -50,10 +50,8 @@ class GreedyPolicy:
         self.nactions = nactions
         self.weights = weights
 
-    def value(self, phi, action=None):
-        if action is None:
-            return np.sum(self.weights[phi, :], axis=0)
-        return np.sum(self.weights[phi, action], axis=0)
+    def value(self, phi):
+        return np.sum(self.weights[phi, :], axis=0)
 
     def sample(self, phi):
         return int(np.argmax(self.value(phi)))
@@ -66,10 +64,8 @@ class SoftmaxPolicy:
         self.nactions = nactions
         self.temp = temp
 
-    def value(self, phi, action=None):
-        if action is None:
-            return np.sum(self.weights[phi, :], axis=0)
-        return np.sum(self.weights[phi, action], axis=0)
+    def value(self, phi):
+        return np.sum(self.weights[phi, :], axis=0)
 
     def pmf(self, phi):
         v = self.value(phi) / self.temp
