@@ -5,6 +5,7 @@ from PuddleDiscrete import PuddleD
 import os
 import threading
 
+
 class Tabular:
     def __init__(self, nstates):
         self.nstates = nstates
@@ -115,10 +116,13 @@ class PolicyGradient:
         self.policy = policy
 
     # Updation of the theta parameter of the policy
-    def update(self, phi, action, critic, sigma, psi, I_Q, I_sigma, rho_Q, rho_sigma):
+    def update(self, phi, action, critic, sigma, psi, I_Q, I_sigma, rho_Q, rho_sigma, first_time_step):
         actions_pmf = self.policy.pmf(phi)
+        const = 2
+        if first_time_step == 1:
+            const = 1
         if psi != 0.0:  # variance as regularization factor to optimization criterion
-            var_constant = -self.lr * psi * I_sigma * rho_sigma * sigma
+            var_constant = -self.lr * psi * I_sigma * rho_sigma * sigma * const
             self.policy.weights[phi, :] -= var_constant * actions_pmf
             self.policy.weights[phi, action] += var_constant
 
@@ -186,7 +190,7 @@ def ReturnTargetPolicy(weights, gamma_Q, frozen_states, features, nactions):
     done = False
     current_gamma = 1.0
     step = 0.
-    while done != True:
+    while done != True and step < 500:
         old_observation = observation
         action = policy.sample(phi)
         observation, reward, done, _ = env.step(action)
@@ -211,7 +215,8 @@ def VarReturnTargetPolicy(weights, gamma_Q, frozen_states, features, nactions):
         phi = features(observation)
         done = False
         current_gamma = 1.0
-        while done != True:
+        step = 0
+        while done != True and step < 500:
             old_observation = observation
             action = policy.sample(phi)
             observation, reward, done, _ = env.step(action)
@@ -220,6 +225,7 @@ def VarReturnTargetPolicy(weights, gamma_Q, frozen_states, features, nactions):
             return_value += current_gamma * reward
             current_gamma *= gamma_Q
             phi = features(observation)
+            step += 1
         return_dist.append(return_value)
     return np.var(return_dist)
 
@@ -232,7 +238,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
     nfeatures = len(features)
     nactions = env.action_space.n
 
-    get_variance_after_episode = 100
+    get_variance_after_episode = 25
     list_eps = list(np.arange(0, nepisodes, get_variance_after_episode))
     list_eps.append(nepisodes - 1)
     var_return_list = []
@@ -241,7 +247,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
     behavioral_policy = RandomPolicy(nactions, rng)
     storing_arr_dim = len(list_eps)
 
-    history = np.zeros((nepisodes, 2))  # 1. Return from Target 2. Steps in target
+    history = np.zeros((nepisodes, 3))  # 1. Return from Target 2. Steps in target
     # storage the weights of the trained model
     weight_policy = np.zeros((storing_arr_dim, nfeatures, nactions),
                              dtype=np.float32)
@@ -249,7 +255,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
     # Target policy is as softmax policy
     policy = SoftmaxPolicy(rng, nfeatures, nactions, temperature)
     # Action_critic is Q value of state-action pair
-    weights_QVal = np.zeros((nfeatures, nactions)) # positive weight initialization
+    weights_QVal = np.zeros((nfeatures, nactions))  # positive weight initialization
     action_critic = StateActionLearning(gamma_Q, lr_critic, weights_QVal, policy, behavioral_policy, 0)
 
     # Variance is sigma of state-action pair
@@ -259,8 +265,9 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
 
     # Policy gradient improvement step
     policy_improvement = PolicyGradient(policy, lr_theta)
-
+    current_psi = psi
     for episode in range(nepisodes):
+        # print("Episode: ", episode, "---------------")
         first_time_step = 1
         observation = env.reset()
         phi = features(observation)
@@ -273,7 +280,10 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
         I_sigma = 1.0
         rho_Q = min(1, (policy.pmf(phi)[int(action)] / behavioral_policy.pmf()[int(action)]))
         rho_sigma = rho_Q
-        while done != True:
+        sum_td_error = 0.0
+        # if episode == 50:
+        #     current_psi = psi # adding psi value in 50th episode
+        while done != True and step < 500:
             old_observation = observation
             old_phi = phi
             old_action = action
@@ -290,28 +300,32 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
 
             # Critic update
             tderror = action_critic.update(phi, action, reward, done)
-            if psi != 0.0:
+            # print("TD: ", tderror)
+            if current_psi != 0.0:
                 try:
                     td_square = pow(tderror, 2.0)
-                # Just to prevent the overflow error
+                # To prevent the overflow error
                 except OverflowError:
                     td_square = tderror * 2
                 sigma.update(phi, action, td_square, done)
                 sigma_val = sigma.value(old_phi, old_action)
+                if sigma_val == np.nan:
+                    print("NAN ENCOUNTERED!!!!!!!!!!")
+                    sigma_val = 0.0
             else:
                 sigma_val = 0.0
 
             critic_val = action_critic.value(old_phi, old_action)
-            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, psi, I_Q, I_sigma, rho_Q, rho_sigma)
-            if first_time_step == 1:
-                psi = 2 * psi
-                first_time_step = 0
+            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, current_psi,
+                                      I_Q, I_sigma, rho_Q, rho_sigma, first_time_step)
+            first_time_step = 0
             step += 1
+            sum_td_error += abs(tderror)
             I_Q *= gamma_Q
             I_sigma *= gamma_var
             rho = min(1, (policy.pmf(phi)[int(action)] / behavioral_policy.pmf()[int(action)]))
             rho_Q *= rho
-            rho_sigma *= rho**2
+            rho_sigma *= rho ** 2
 
         return_target, step_target = ReturnTargetPolicy(policy.weights, gamma_Q, frozen_states, features, nactions)
         if episode in list_eps:
@@ -321,6 +335,7 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
 
         history[episode, 0] = return_target
         history[episode, 1] = step_target
+        history[episode, 2] = sum_td_error
 
     outputinfo.history.append(history)
     outputinfo.weight_policy.append(weight_policy)
@@ -330,22 +345,22 @@ def run_agent(outputinfo, nepisodes, frozen_states, temperature, gamma_Q, gamma_
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gamma', help='Discount factor', type=float, default=0.99)
-    parser.add_argument('--lmbda', help='Lambda', type=float, default=0.5)
-    parser.add_argument('--lr_critic', help="Learning rate for Q value", type=float, default=0.025)
+    parser.add_argument('--lmbda', help='Lambda', type=float, default=1.0)
+    parser.add_argument('--lr_critic', help="Learning rate for Q value", type=float, default=0.1)
     parser.add_argument('--lr_theta', help="Learning rate for policy parameterization theta", type=float,
-                        default=0.0025)
-    parser.add_argument('--lr_sigma', help="Learning rate for sigma variance of return", type=float, default=0.006)
-    parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=0.25)
-    parser.add_argument('--psi', help="Psi regularizer for Variance in return", type=float, default=0.0)
-    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=2000)
-    parser.add_argument('--nruns', help="Number of run for target policy", type=int, default=50)
-    parser.add_argument('--seed', help="seed value for experiment", type=int, default=20)
+                        default=0.01)
+    parser.add_argument('--lr_sigma', help="Learning rate for sigma variance of return", type=float, default=0.1)
+    parser.add_argument('--temperature', help="Temperature parameter for softmax", type=float, default=100)
+    parser.add_argument('--psi', help="Psi regularizer for Variance in return", type=float, default=0.01)
+    parser.add_argument('--nepisodes', help="Number of episodes per run", type=int, default=1000)
+    parser.add_argument('--nruns', help="Number of run for target policy", type=int, default=1)
+    parser.add_argument('--seed', help="seed value for experiment", type=int, default=1)
 
     args = parser.parse_args()
     outer_dir = "../../Neurips2020Results/Results_Puddle"
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
-    outer_dir = os.path.join(outer_dir, "PuddleDiscrete")
+    outer_dir = os.path.join(outer_dir, "PuddleDiscreteWithRand")
     if not os.path.exists(outer_dir):
         os.makedirs(outer_dir)
 

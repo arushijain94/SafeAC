@@ -130,10 +130,13 @@ class PolicyGradient:
         self.policy = policy
 
     # Updation of the theta parameter of the policy
-    def update(self, phi, action, critic, sigma, psi, I_Q, I_sigma, rho_Q, rho_sigma):
+    def update(self, phi, action, critic, sigma, psi, I_Q, I_sigma, rho_Q, rho_sigma, first_time_step):
         actions_pmf = self.policy.pmf(phi)
+        const = 2
+        if first_time_step:
+            const = 1
         if psi != 0.0:  # variance as regularization factor to optimization criterion
-            var_constant = -self.lr * psi * I_sigma * rho_sigma * sigma
+            var_constant = -self.lr * psi * I_sigma * rho_sigma * sigma * const
             self.policy.weights[phi, :] -= var_constant * actions_pmf
             self.policy.weights[phi, action] += var_constant
 
@@ -289,14 +292,16 @@ def run_agent(outputinfo, nepisodes, temperature, gamma_Q, gamma_var,
                     td_square = tderror * 2
                 sigma.update(phi, action, td_square, done)
                 sigma_val = sigma.value(old_phi, old_action)
+                if sigma_val == np.nan:
+                    print("NAN ENCOUNTERED!!!!!!!!!!")
+                    sigma_val = 0.0
             else:
                 sigma_val = 0.0
 
             critic_val = action_critic.value(old_phi, old_action)
-            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, psi, I_Q, I_sigma, rho_Q, rho_sigma)
-            if first_time_step == 1:
-                psi = 2 * psi
-                first_time_step = 0
+            policy_improvement.update(old_phi, old_action, critic_val, sigma_val, psi,
+                                      I_Q, I_sigma, rho_Q, rho_sigma, first_time_step)
+            first_time_step = 0
             step += 1
             I_Q *= gamma_Q
             I_sigma *= gamma_var

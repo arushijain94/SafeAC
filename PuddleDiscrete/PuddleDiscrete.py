@@ -88,11 +88,11 @@ wwwwwwwwwwww
         We consider a case in which rewards are zero on all state transitions.
         """
         reward = 0
-        # if np.random.uniform() < 1/5.:
-        #     empty_cells = self.empty_around(self.currentcell)
-        #     nextcell = empty_cells[np.random.randint(len(empty_cells))]
-        # else:
-        nextcell = tuple(self.currentcell + self.directions[action])
+        if np.random.uniform() < 1/5.:
+            empty_cells = self.empty_around(self.currentcell)
+            nextcell = empty_cells[np.random.randint(len(empty_cells))]
+        else:
+            nextcell = tuple(self.currentcell + self.directions[action])
 
         if self.frozen[self.currentcell]:
             reward = np.random.normal(loc=0.0, scale=8.0)
@@ -111,5 +111,4 @@ wwwwwwwwwwww
 register(
     id='Puddle-v1',
     entry_point='PuddleDiscrete:PuddleD',
-    timestep_limit=500,
 )
